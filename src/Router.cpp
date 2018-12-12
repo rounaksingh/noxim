@@ -283,7 +283,7 @@ void Router::perCycleUpdate()
 
 vector < int > Router::routingFunction(const RouteData & route_data)
 {
-    if (GlobalParams::use_winoc)
+/*    if (GlobalParams::use_winoc)
     {
         if (hasRadioHub(local_id) &&
                 hasRadioHub(route_data.dst_id) &&
@@ -300,8 +300,18 @@ vector < int > Router::routingFunction(const RouteData & route_data)
     }
     if (GlobalParams::verbose_mode > VERBOSE_OFF) 
 	LOG << "Wired routing for dst = " << route_data.dst_id << endl;
+*/
+	vector<int> dirv;
+	dirv = routingAlgorithm->route(this, route_data);
+	//if (GlobalParams::verbose_mode > VERBOSE_OFF) 
+	//{
+		LOG << "Routing at current_id = " << route_data.current_id << " from src_id = "<< route_data.src_id << " to dst_id = " << route_data.dst_id << endl;
+		for (int x : dirv) 
+  	    	LOG << x << " ";
+  	    LOG << endl;
+    //}
 
-    return routingAlgorithm->route(this, route_data);
+    return dirv;
 }
 
 int Router::route(const RouteData & route_data)

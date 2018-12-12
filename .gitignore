@@ -1,0 +1,5 @@
+# Gitignore file
+
+bin/libs
+bin/build
+bin/noxim

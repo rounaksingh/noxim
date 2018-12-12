@@ -18,9 +18,13 @@
 #include <iomanip>
 #include <sstream>
 
+#define SUBNET_DIM_X 2
+#define SUBNET_DIM_Y 2
+
 #ifdef DEBUG
 
 #define LOG (std::cout << std::setw(7) << left << sc_time_stamp().to_double() / GlobalParams::clock_period_ps << " " << name() << "::" << __func__<< "() --> ")
+#define RLOG (std::cout << std::setw(7) << left << sc_time_stamp().to_double() / GlobalParams::clock_period_ps << " " << "::" << __func__<< "() --> ")
 
 #else
 template <class cT, class traits = std::char_traits<cT> >
@@ -168,6 +172,11 @@ inline void sc_trace(sc_trace_file * &tf, const ChannelStatus & bs, string & nam
 
 // Misc common functions
 
+inline int xy_distance(const Coord & node1, const Coord & node2)
+{
+    return abs(node1.x - node2.x) + abs(node1.y - node2.y);
+}
+
 inline Coord id2Coord(int id)
 {
     Coord coord;
@@ -188,6 +197,171 @@ inline int coord2Id(const Coord & coord)
     assert(id < GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_y);
 
     return id;
+}
+
+inline int node_subnet_id(const Coord & node1)
+{
+    int subnet_x_coord = int(node1.x /SUBNET_DIM_X);
+    int subnet_y_coord = int(node1.y /SUBNET_DIM_Y);
+    return (GlobalParams::mesh_dim_x/SUBNET_DIM_X) * subnet_y_coord + subnet_x_coord;
+}
+
+
+inline int hub_id_connected_to_node(int id)
+{
+    for (auto& t : GlobalParams::hub_for_tile)
+    {
+        if (t.first == id)
+        {
+            return t.second;
+        }
+        
+    }
+    return -1;
+}
+
+
+inline int nearest_connected_to_hub_node_id(int id)
+{
+    int nearst_distance= GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_x;
+    int result = 0;
+    for (auto& t : GlobalParams::hub_for_tile)
+    {
+        int tmp = xy_distance(id2Coord(id),id2Coord(t.first));
+        if (tmp < nearst_distance)
+        {
+            nearst_distance = tmp;
+            result = t.first;
+        }
+        
+    }
+    return result;
+}
+
+
+
+inline int nearest_hub_availibale_node_id_in_subnet(int node_id, int subnet_id)
+{
+    int nearst_distance= GlobalParams::mesh_dim_x * GlobalParams::mesh_dim_x;
+    int result = -1;
+    //hub_for_tile - map<node_id,hub_id>
+    for (auto& t : GlobalParams::hub_for_tile)
+    {
+        // get the node subnet id for a node connected to a hub and compare it with given subnet_id or subnet_id of given node_id
+        if (node_subnet_id(id2Coord(t.first)) == subnet_id)
+        {
+            // find the distance between the node connected to hub and given node
+            int tmp = xy_distance(id2Coord(node_id),id2Coord(t.first));
+           //if (tmp < nearst_distance && GlobalParams::network_hub_can_work.find(t.second)->second && GlobalParams::hub_tx_channel_buffer_free_slots.find(t.second)->second>1)
+            if (tmp < nearst_distance)
+            {
+                nearst_distance = tmp;
+                result = t.first;
+            }
+        
+        }
+    }
+    return result;
+}
+
+
+inline int find_nearest_wireless_connected_node_intra_subnet(int node_id)
+{
+    return nearest_hub_availibale_node_id_in_subnet(node_id, node_subnet_id(id2Coord(node_id)));
+}
+/*
+inline int find_nearest_wireless_connected_node_in_spare_subnet(int node_id)
+{
+    int number_of_subnets_in_x_dim = GlobalParams::mesh_dim_x /SUBNET_DIM_X;
+    int number_of_subnets_in_y_dim = GlobalParams::mesh_dim_y /SUBNET_DIM_Y;
+    bool left_e = true;
+    bool right_e = true;
+    bool down_e = true;
+    bool top_e = true;
+    int current_subnet = node_subnet_id(id2Coord(node_id));
+    if (current_subnet%number_of_subnets_in_x_dim == 0)
+        left_e = false;
+    if (current_subnet%number_of_subnets_in_x_dim == number_of_subnets_in_x_dim-1)
+        right_e = false;
+    if ( current_subnet >= (number_of_subnets_in_x_dim * number_of_subnets_in_y_dim) - number_of_subnets_in_x_dim)
+        down_e = false;
+    if (current_subnet < number_of_subnets_in_x_dim )
+        top_e = false;
+    
+    
+    float top_weight = (float)((int)(node_id/GlobalParams::mesh_dim_x) %SUBNET_DIM_Y)/(SUBNET_DIM_Y-1) ;
+    float down_weight = 1-top_weight;
+    float right_weight = (float)((int)(node_id%GlobalParams::mesh_dim_x) %SUBNET_DIM_X)/(SUBNET_DIM_X-1);
+    float left_weight = 1-right_weight;
+    
+    if (top_e==false)
+        top_weight = -1;
+    if (down_e==false)
+        down_weight = -1;
+    if (right_e==false)
+        right_weight = -1;
+    if (left_e==false)
+        left_weight = -1;
+    
+    float max_weight = top_weight;
+    int result = nearest_hub_availibale_node_id_in_subnet(node_id,current_subnet-number_of_subnets_in_x_dim);
+    
+    if (down_weight > max_weight)
+    {
+        max_weight = down_weight;
+        int ne = nearest_hub_availibale_node_id_in_subnet(node_id,current_subnet+number_of_subnets_in_x_dim);
+        if( ne > -1 ) result = ne;
+    }
+    
+    if (right_weight > max_weight)
+    {
+        max_weight = right_weight;
+        int ne = nearest_hub_availibale_node_id_in_subnet(node_id,current_subnet+1);
+        if( ne > -1 ) result = ne;
+    }
+    
+    if (left_weight > max_weight)
+    {
+        max_weight = left_weight;
+        int ne = nearest_hub_availibale_node_id_in_subnet(node_id,current_subnet-1);
+        if( ne > -1 ) result = ne;
+    }
+    if (max_weight == -1)
+        result = -1;
+    return result;
+}
+
+
+inline int number_of_hubs()
+{
+    int i=0;
+    for (auto& t : GlobalParams::network_hub_can_work)
+    {
+        i++;
+    }
+    return i;
+}
+*/
+
+inline int number_of_connections_to_hubs()
+{
+    int i=0;
+    for (auto& t : GlobalParams::hub_for_tile)
+    {
+        i++;
+    }
+    return i;
+}
+
+inline int hub_to_hub_distance(int hub_free_slots)
+{
+    int tmp=number_of_connections_to_hubs();
+    double wireless_cycle_per_flit = 1/ ( ((GlobalParams::channel_configuration[0].dataRate)/GlobalParams::flit_size) * (GlobalParams::clock_period_ps/1000) );
+    
+    int result = 0;
+    for(int i=1;i<=tmp;i++)
+        result +=i;
+    return wireless_cycle_per_flit * (result/tmp);
 }
 
 inline bool sameRadioHub(int id1, int id2)
@@ -216,6 +390,28 @@ inline int tile2Hub(int id)
     return it->second;
 }
 
+inline int selectChannel(int src_hub, int dst_hub)
+{  
+    
+    vector<int> & first = GlobalParams::hub_configuration[src_hub].txChannels;
+    vector<int> & second = GlobalParams::hub_configuration[dst_hub].rxChannels;
+
+    vector<int> intersection;
+
+    for (unsigned int i=0;i<first.size();i++)
+    {
+    for (unsigned int j=0;j<second.size();j++)
+    {
+        if (first[i] ==second[j])
+        intersection.push_back(first[i]);
+    }
+    }
+
+    if (intersection.size()==0) return NOT_VALID;
+
+    return intersection[rand()%intersection.size()];
+
+}
 
 inline void printMap(string label, const map<string,double> & m,std::ostream & out)
 {

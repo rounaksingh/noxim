@@ -2,7 +2,7 @@
 
 SYSTEMC := libs/systemc-2.3.1
 YAML    := libs/yaml-cpp
-
+BOOST	:= /home/rn5949/noxim/boost/usr
 
 ##### DIRECTORIES #####
 
@@ -24,14 +24,14 @@ CXX      := g++
 OPT      := -O3
 # to enable logs with LOG macro, uncomment "-g DDEBUG" in the line below
 # and recompile everythin (make clean)
-#DEBUG    :=  -g -DDEBUG
+DEBUG    :=  -g -DDEBUG
 OTHER    := -Wall -DSC_NO_WRITE_CHECK --std=c++11 # -Wno-deprecated
 CXXFLAGS := $(OPT) $(OTHER) $(DEBUG)
 
-INCDIR := -I$(SRCDIR) -isystem $(SYSTEMC)/include -I$(YAML)/include
+INCDIR := -I$(SRCDIR) -isystem $(SYSTEMC)/include -I$(YAML)/include -I$(BOOST)/include
 LIBDIR := -L$(SRCDIR) -L$(SYSTEMC_LIBS) -L$(YAML)/lib
 
-LIBS := -lsystemc -lm -lyaml-cpp 
+LIBS := -lsystemc -lm -lyaml-cpp
 
 SPACE := $(subst ,, )
 VPATH := $(SRCDIR):$(subst $(SPACE),:,$(SUBDIRS))
