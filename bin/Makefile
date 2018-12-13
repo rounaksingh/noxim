@@ -2,8 +2,8 @@
 
 SYSTEMC := libs/systemc-2.3.1
 YAML    := libs/yaml-cpp
-
-
+BOOST	:= /home/rn5949/noxim/boost/usr
+PYBIND11_PATH := /home/rn5949/noxim/pybind11
 ##### DIRECTORIES #####
 
 SYSTEMC_LIBS := $(wildcard $(SYSTEMC)/lib-*)
@@ -24,14 +24,18 @@ CXX      := g++
 OPT      := -O3
 # to enable logs with LOG macro, uncomment "-g DDEBUG" in the line below
 # and recompile everythin (make clean)
-#DEBUG    :=  -g -DDEBUG
-OTHER    := -Wall -DSC_NO_WRITE_CHECK --std=c++11 # -Wno-deprecated
+DEBUG    :=  -g -DDEBUG
+OTHER    := -Wall -DSC_NO_WRITE_CHECK -fPIC --std=c++11 # -Wno-deprecated
 CXXFLAGS := $(OPT) $(OTHER) $(DEBUG)
 
-INCDIR := -I$(SRCDIR) -isystem $(SYSTEMC)/include -I$(YAML)/include
+INCDIR := -I$(SRCDIR) -isystem $(SYSTEMC)/include -I$(YAML)/include -I$(BOOST)/include
 LIBDIR := -L$(SRCDIR) -L$(SYSTEMC_LIBS) -L$(YAML)/lib
 
-LIBS := -lsystemc -lm -lyaml-cpp 
+PYBIND11_INC_FLAGS := $(shell python3-config --cflags) -I $(PYBIND11_PATH)/include
+#PYBIND11_INC_FLAGS := -I $(PYBIND11_PATH)/include -I/home/rn5949/noxim/python3/include/python3.6m -I/home/rn5949/noxim/python3/include/python3.6m  -Wno-unused-result -Wsign-compare  -DNDEBUG -g -fwrapv -O3 -Wall
+PYBIND11_LD_FLAGS := $(shell python3-config --ldflags)
+
+LIBS := -lsystemc -lm -lyaml-cpp
 
 SPACE := $(subst ,, )
 VPATH := $(SRCDIR):$(subst $(SPACE),:,$(SUBDIRS))
@@ -39,11 +43,11 @@ VPATH := $(SRCDIR):$(subst $(SPACE),:,$(SUBDIRS))
 ##### RULES #####
 
 $(MODULE): $(OBJS)
-	$(CXX) $(LIBDIR) $^ $(LIBS) -o $@ 2>&1 | c++filt
+	$(CXX) $(LIBDIR) $^ $(PYBIND11_LD_FLAGS) $(LIBS) -o $@ 2>&1 | c++filt
 
 $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(INCDIR) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCDIR) $(PYBIND11_INC_FLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(MODULE) *~
